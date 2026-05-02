@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Help Desk - Mockup Base</title>
+    <style>
+        /* Design system: variables CSS de color, tipografía y espaciado */
+        :root {
+            --primary-color: #2563eb;
+            --bg-app: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Estructura del Layout Principal */
+        header {
+            background-color: var(--bg-card);
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        footer {
+            background-color: var(--bg-card);
+            padding: var(--spacing-md);
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Componentes de UI */
+        .api-key-container {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        input, textarea, button {
+            padding: var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            border: none;
+            padding: 8px 16px;
+        }
+
+        .chat-window {
+            flex: 1;
+            border: 2px dashed var(--border-color); /* Placeholder visual */
+            border-radius: 8px;
+            background: white;
+            padding: var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .message-placeholder {
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        .user { background: #dbeafe; align-self: flex-end; }
+        .ai { background: #f3f4f6; align-self: flex-start; }
+
+        /* Indicador de escritura (tres puntos animados) */
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 10px 14px;
+            gap: 4px;
+            align-items: center;
+        }
+        .typing-indicator span {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typing-bounce 1.2s ease-in-out infinite;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30%            { transform: translateY(-6px); }
+        }
+
+        .input-area {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        textarea {
+            flex: 1;
+            resize: none;
+        }
+
+        /* Estado deshabilitado para el input de API Key una vez conectado */
+        #apiKeyInput:disabled {
+            background: #f8fafc;
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* Botón Conectar en estado conectado */
+        #connectBtn.connected {
+            background-color: #16a34a;
+            cursor: default;
+        }
+
+        /* Botón Enviar deshabilitado mientras carga */
+        #sendBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Mensaje de error inline */
+        .error-msg {
+            align-self: flex-start;
+            background: #fee2e2;
+            color: #b91c1c;
+            border-radius: 8px;
+            padding: 10px;
+            max-width: 80%;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- main/encabezado: nombre de la app + input para API Key + botón Conectar -->
+    <header>
+        <h1>AI Help Desk 1.0</h1>
+        <div class="api-key-container">
+            <input type="password" placeholder="Introduce tu API Key..." id="apiKeyInput">
+            <button type="button" id="connectBtn" onclick="saveApiKey()">Conectar</button>
+        </div>
+    </header>
+
+    <!-- main/body: ventana de conversación donde aparecerán los mensajes -->
+    <main>
+        <div class="chat-window" id="chatWindow">
+            <div class="message-placeholder ai">
+                <strong>Soporte IA:</strong> Hola, soy tu asistente técnico. ¿En qué puedo ayudarte hoy?
+            </div>
+            <div class="message-placeholder user">
+                <strong>Usuario:</strong> Hola, tengo un problema con el acceso al sistema.
+            </div>
+            <!-- Los mensajes futuros se inyectarán aquí -->
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    </main>
+
+    <!-- main/footer: textarea para escribir la consulta + botón Enviar -->
+    <footer>
+        <div class="input-area">
+            <textarea
+                id="userInput"
+                placeholder="Escribe tu consulta aquí..."
+                rows="2"
+                onkeydown="handleKey(event)"
+                oninput="autoResize(this)"
+            ></textarea>
+            <button type="button" id="sendBtn" onclick="sendMessage()">Enviar</button>
+        </div>
+    </footer>
+
+    <script>
+        /* ================================================================
+           Módulo 1 → Estado: variables globales (apiKey, conversationHistory)
+           Aquí se almacenará el estado persistente de la sesión.
+        ================================================================ */
+        let apiKey = '';
+        let conversationHistory = [];
+
+        /* ================================================================
+           Módulo 2 → RAG: base de conocimiento (vacío por ahora)
+           Contendrá la lógica para inyectar contexto técnico al modelo.
+        ================================================================ */
+        // Ejemplo futuro:
+        // const knowledgeBase = [
+        //   { keywords: ['contraseña', 'password'], context: 'Para restablecer...' }
+        // ];
+        // function retrieveContext(query) { ... }
+
+        /* ================================================================
+           Módulo 3 → System Prompt: reglas del asistente (vacío por ahora)
+           Definición del comportamiento y rol del asistente.
+        ================================================================ */
+        const SYSTEM_PROMPT = '';
+        // Ejemplo futuro:
+        // const SYSTEM_PROMPT = `Eres un asistente de mesa de ayuda técnica.
+        // Responde siempre en español, de forma concisa y profesional.`;
+
+        /* ================================================================
+           Módulo 4 → API Key: función saveApiKey()
+           Lógica para guardar/validar la llave (solo en memoria, sin LocalStorage).
+        ================================================================ */
+        function saveApiKey() {
+            const input      = document.getElementById('apiKeyInput');
+            const connectBtn = document.getElementById('connectBtn');
+            const value      = input.value.trim();
+
+            // Validar que empiece con 'sk-'
+            if (!value.startsWith('sk-')) {
+                input.style.borderColor = '#ef4444';
+                input.focus();
+                setTimeout(() => input.style.borderColor = '', 1500);
+                return;
+            }
+
+            // Guardar solo en memoria (no en LocalStorage por seguridad)
+            apiKey = value;
+
+            // Deshabilitar input y actualizar botón a estado conectado
+            input.disabled = true;
+            connectBtn.textContent = '✓ Conectado';
+            connectBtn.classList.add('connected');
+            connectBtn.disabled = true;
+
+            // Enfocar el textarea para que el usuario pueda escribir de inmediato
+            document.getElementById('userInput').focus();
+        }
+
+        /* ================================================================
+           Módulo 5 → Enviar mensaje: función sendMessage()
+           Orquestador del flujo de envío y llamada a la API de OpenAI.
+        ================================================================ */
+        async function sendMessage() {
+            const textarea = document.getElementById('userInput');
+            const sendBtn  = document.getElementById('sendBtn');
+            const text     = textarea.value.trim();
+
+            // No enviar sin texto
+            if (!text) return;
+
+            // No enviar sin API Key configurada
+            if (!apiKey) {
+                addMessage('error', 'Primero conecta tu API Key para enviar mensajes.');
+                return;
+            }
+
+            // Limpiar textarea y deshabilitar botón mientras espera respuesta
+            textarea.value = '';
+            autoResize(textarea);
+            sendBtn.disabled = true;
+
+            // Mostrar burbuja del usuario e indicador de escritura
+            addMessage('user', text);
+            showTyping(true);
+
+            // Agregar al historial como rol 'user'
+            conversationHistory.push({ role: 'user', content: text });
+
+            try {
+                // Construir array de mensajes: system prompt + historial completo
+                const messages = [];
+                if (SYSTEM_PROMPT) {
+                    messages.push({ role: 'system', content: SYSTEM_PROMPT });
+                }
+                messages.push(...conversationHistory);
+
+                // Fetch a la API de OpenAI
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model:       'gpt-4o-mini',
+                        temperature: 0.3,
+                        max_tokens:  600,
+                        messages:    messages
+                    })
+                });
+
+                // Manejar respuesta HTTP no exitosa (401, 429, 500, etc.)
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    const errMsg  = errData?.error?.message || `Error HTTP ${response.status}`;
+                    throw new Error(errMsg);
+                }
+
+                const data         = await response.json();
+                const assistantMsg = data.choices?.[0]?.message?.content ?? '(Sin respuesta)';
+
+                // Agregar la respuesta al historial como rol 'assistant'
+                conversationHistory.push({ role: 'assistant', content: assistantMsg });
+
+                // Mostrar la respuesta en la UI
+                showTyping(false);
+                addMessage('ai', assistantMsg);
+
+            } catch (err) {
+                // Revertir el último turno del usuario del historial si falló la llamada
+                conversationHistory.pop();
+                showTyping(false);
+                addMessage('error', `Error al contactar la API: ${err.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                textarea.focus();
+            }
+        }
+
+        /* ================================================================
+           Módulo 6 → UI helpers: funciones de interfaz
+           Funciones para limpiar el chat, scroll automático y renderizado de burbujas.
+        ================================================================ */
+
+        /**
+         * addMessage(role, text)
+         * Agrega una burbuja de mensaje al chat.
+         * role: 'user' | 'ai' | 'error'
+         */
+        function addMessage(role, text) {
+            const chatWindow      = document.getElementById('chatWindow');
+            const typingIndicator = document.getElementById('typingIndicator');
+
+            const bubble = document.createElement('div');
+
+            if (role === 'error') {
+                bubble.className   = 'error-msg';
+                bubble.textContent = text;
+            } else {
+                bubble.className   = `message-placeholder ${role}`;
+                const label        = role === 'ai' ? 'Soporte IA' : 'Usuario';
+                bubble.innerHTML   = `<strong>${label}:</strong> ${escapeHtml(text)}`;
+            }
+
+            // Insertar antes del indicador de escritura para que siempre quede al final
+            chatWindow.insertBefore(bubble, typingIndicator);
+            scrollToBottom();
+        }
+
+        /**
+         * showTyping(visible)
+         * Muestra u oculta el indicador de escritura (tres puntos animados).
+         */
+        function showTyping(visible) {
+            const indicator    = document.getElementById('typingIndicator');
+            indicator.style.display = visible ? 'flex' : 'none';
+            if (visible) scrollToBottom();
+        }
+
+        /**
+         * autoResize(el)
+         * Auto-redimensiona el textarea según su contenido (máx. 160px).
+         */
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+        }
+
+        /**
+         * handleKey(e)
+         * Enter envía el mensaje; Shift+Enter inserta un salto de línea.
+         */
+        function handleKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        /**
+         * escapeHtml(text)
+         * Sanitiza el contenido del usuario antes de insertarlo en el DOM.
+         */
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, ch => map[ch]);
+        }
+
+        /**
+         * scrollToBottom()
+         * Desplaza el chat al último mensaje de forma suave.
+         */
+        function scrollToBottom() {
+            const chatWindow = document.getElementById('chatWindow');
+            chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
+        }
+    </script>
+
+</body>
+</html>
